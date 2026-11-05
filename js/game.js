@@ -118,7 +118,7 @@
   let player = null;
   let entities = null; // 動く物をまとめたもの
   let particles = [];
-  let cam = { x: 0, shake: 0, look: 0 };
+  let cam = { x: 0, shake: 0 };
   let clock = 0;
   let frame = 0;
   let starsThisRun = 0;
@@ -234,7 +234,6 @@
     player = makePlayer(checkpoint.x, checkpoint.y);
     cam.x = 0;
     cam.shake = 0;
-    cam.look = 0;
     updateHud();
   }
 
@@ -300,7 +299,10 @@
     updateHud();
   }
 
-  const markDirty = (c) => { chunks[Math.floor(c / CHUNK)].dirty = true; };
+  const markDirty = (c) => {
+    chunks[Math.floor(c / CHUNK)].dirty = true;
+    if (c % CHUNK === 0 && c > 0) chunks[c / CHUNK - 1].dirty = true; // 前の画像にも同じ列が入っている
+  };
 
   function openCrate(c, r) {
     const key = `${c},${r}`;
@@ -625,13 +627,12 @@
   function stepCamera(dt) {
     const p = player;
     const max = level.width * TS - VIEW_W;
-    // 向きを変えても画面が振られないよう、先読みはゆっくり動かす
-    cam.look += (p.face * 22 - cam.look) * Math.min(1, dt * 2.5);
-    const target = p.x + p.w / 2 - VIEW_W / 2 + cam.look;
-    cam.x += (target - cam.x) * Math.min(1, dt * 12);
-    cam.x = Math.max(0, Math.min(max, cam.x));
+    // キャラを常に画面の中央に置く。ボス戦では部屋全体が見える位置へ移る
     if (level.gate && !bossFight && p.x > (level.gate.x + 3) * TS) startBoss();
-    if (bossFight && entities.boss) cam.x = Math.max(cam.x, max);
+    const target = bossFight && entities.boss ? max : p.x + p.w / 2 - VIEW_W / 2;
+    const rate = bossFight && entities.boss ? 2.5 : 16;
+    cam.x += (target - cam.x) * (1 - Math.exp(-rate * dt));
+    cam.x = Math.max(0, Math.min(max, cam.x));
     cam.shake = Math.max(0, cam.shake - dt);
   }
 
@@ -660,17 +661,15 @@
   }
 
   // ---- 描画 ----
-  const snap = (v) => Math.round(v * RES) / RES;
-
   function drawImage(image, x, y) {
-    ctx.drawImage(image, snap(x), snap(y), image.logicalW, image.logicalH);
+    ctx.drawImage(image, x, y, image.logicalW, image.logicalH);
   }
 
   function drawSprite(name, x, y, flip) {
     const image = sprites[name];
     if (flip) {
       ctx.save();
-      ctx.translate(snap(x) + image.logicalW, snap(y));
+      ctx.translate(x + image.logicalW, y);
       ctx.scale(-1, 1);
       ctx.drawImage(image, 0, 0, image.logicalW, image.logicalH);
       ctx.restore();
@@ -683,16 +682,16 @@
     ctx.save();
     ctx.globalCompositeOperation = 'lighter';
     ctx.globalAlpha = alpha;
-    ctx.drawImage(sprites.glow, snap(x - size / 2), snap(y - size / 2), size, size);
+    ctx.drawImage(sprites.glow, x - size / 2, y - size / 2, size, size);
     ctx.restore();
   }
 
   function drawBackground() {
     bgCtx.drawImage(parallax.sky, 0, 0);
     const layer = (image, rate) => {
-      const x = Math.round(-((cam.x * rate) % parallax.width) * BG_RES);
+      const x = -((cam.x * rate) % parallax.width) * BG_RES;
       bgCtx.drawImage(image, x, 0);
-      if (x + image.width < bgCanvas.width) bgCtx.drawImage(image, x + image.width, 0);
+      if (x + image.width < bgCanvas.width) bgCtx.drawImage(image, x + image.width - 1, 0);
     };
     layer(parallax.clouds, 0.06);
     layer(parallax.far, 0.14);
@@ -707,15 +706,15 @@
     const chunk = chunks[index];
     if (!chunk.canvas) {
       chunk.canvas = document.createElement('canvas');
-      chunk.canvas.width = CHUNK * TS * RES;
+      chunk.canvas.width = (CHUNK + 1) * TS * RES; // 継ぎ目が見えないよう次の画像の下まで描く
       chunk.canvas.height = VIEW_H * RES;
     }
     const chunkCtx = chunk.canvas.getContext('2d');
     chunkCtx.setTransform(RES, 0, 0, RES, 0, 0);
-    chunkCtx.clearRect(0, 0, CHUNK * TS, VIEW_H);
+    chunkCtx.clearRect(0, 0, (CHUNK + 1) * TS, VIEW_H);
     ctx = chunkCtx;
     const c0 = index * CHUNK;
-    paintTiles(-c0 * TS, c0, Math.min(level.width - 1, c0 + CHUNK - 1));
+    paintTiles(-c0 * TS, c0, Math.min(level.width - 1, c0 + CHUNK));
     ctx = screenCtx;
     chunk.dirty = false;
   }
@@ -725,7 +724,7 @@
     const last = Math.min(chunks.length - 1, Math.floor((cam.x + VIEW_W + 8) / (CHUNK * TS)));
     for (let i = first; i <= last; i++) {
       if (chunks[i].dirty) paintChunk(i);
-      ctx.drawImage(chunks[i].canvas, snap(i * CHUNK * TS + ox), 0, CHUNK * TS, VIEW_H);
+      ctx.drawImage(chunks[i].canvas, i * CHUNK * TS + ox, 0, (CHUNK + 1) * TS, VIEW_H);
     }
   }
 
@@ -744,7 +743,7 @@
           if (!isSolid(at(c - 1, r))) drawImage(tiles.edge, x, y);
           if (!isSolid(at(c + 1, r))) {
             ctx.save();
-            ctx.translate(snap(x) + TS, y);
+            ctx.translate(x + TS, y);
             ctx.scale(-1, 1);
             ctx.drawImage(tiles.edge, 0, 0, 4, TS);
             ctx.restore();
@@ -806,7 +805,7 @@
     ctx.clearRect(0, 0, VIEW_W, VIEW_H);
     drawBackground();
     const shakeX = cam.shake > 0 ? (Math.random() - 0.5) * 4 : 0;
-    const ox = snap(-cam.x + shakeX);
+    const ox = -cam.x + shakeX;
     const onScreen = (e) => e.x + (e.w || 16) + ox > -40 && e.x + ox < VIEW_W + 40;
 
     for (const l of entities.lanterns) {
@@ -838,7 +837,7 @@
         if (e.squash > 0) {
           const image = sprites[`${e.type}0`];
           ctx.globalAlpha = Math.min(1, e.squash * 4);
-          ctx.drawImage(image, snap(e.x + dx + ox), snap(e.y + e.h - 5), image.logicalW, 5);
+          ctx.drawImage(image, e.x + dx + ox, e.y + e.h - 5, image.logicalW, 5);
           ctx.globalAlpha = 1;
         }
         continue;
@@ -1045,6 +1044,7 @@
       keys: KEYS,
       render,
       player: () => player,
+      camera: () => cam.x,
       sprites,
       step: (dt) => { if (mode === 'play') step(dt || STEP); },
       startLevel,
