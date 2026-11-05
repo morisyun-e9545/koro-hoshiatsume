@@ -10,7 +10,11 @@
   const MAX_HP = 3;
 
   const canvas = document.getElementById('game');
-  const ctx = canvas.getContext('2d');
+  const screenCtx = canvas.getContext('2d');
+  let ctx = screenCtx; // 地形を事前に描くときだけ描画先を切り替える
+  const bgCanvas = document.getElementById('bg');
+  const bgCtx = bgCanvas.getContext('2d', { alpha: false });
+  const BG_RES = 2;
   const RES = window.Sprites.RES;
   canvas.width = VIEW_W * RES;
   canvas.height = VIEW_H * RES;
@@ -19,7 +23,7 @@
   const ui = {
     hud: $('hud'), hearts: $('hud-hearts'), cape: $('hud-cape'), stage: $('hud-stage'),
     stars: $('hud-stars'), time: $('hud-time'), overlay: $('overlay'), touch: $('touch'),
-    sound: $('btn-sound'), pause: $('btn-pause'),
+    sound: $('btn-sound'), pause: $('btn-pause'), vignette: $('vignette'),
   };
 
   const sprites = window.Sprites.buildAll();
@@ -108,6 +112,8 @@
   let levelIndex = 0;
   let tiles = null;
   let parallax = null;
+  let chunks = [];
+  const CHUNK = 32; // 地形をこのタイル数ごとに1枚の画像へまとめて描画回数を減らす
   let player = null;
   let entities = null; // 動く物をまとめたもの
   let particles = [];
@@ -204,6 +210,8 @@
     level = window.Levels.list[index]();
     tiles = window.Sprites.buildTiles(level.theme);
     parallax = window.Sprites.buildParallax(level.theme);
+    chunks = Array.from({ length: Math.ceil(level.width / CHUNK) }, () => ({ canvas: null, dirty: true }));
+    ui.vignette.style.background = `radial-gradient(ellipse at center, transparent 58%, ${level.theme.vignette})`;
     entities = {
       enemies: level.enemies.map(makeEnemy),
       stars: level.stars.map((s) => ({ x: s.x * TS + 3, y: s.y * TS + 3, w: 10, h: 10, kind: 'star', got: false })),
@@ -289,10 +297,13 @@
     updateHud();
   }
 
+  const markDirty = (c) => { chunks[Math.floor(c / CHUNK)].dirty = true; };
+
   function openCrate(c, r) {
     const key = `${c},${r}`;
     const item = level.crateItems[key];
     level.grid[r][c] = T.USED;
+    markDirty(c);
     sfx.crate();
     const x = c * TS;
     const y = r * TS;
@@ -520,6 +531,7 @@
           sfx.clear();
           // 出口が開き、ゴールの門が現れる
           for (let r = level.gate.y0; r <= level.gate.y1; r++) level.grid[r][level.gate.x] = T.EMPTY;
+          markDirty(level.gate.x);
           entities.goal = makeGoal(level.bossGoal);
           burst(entities.goal.x + 16, entities.goal.y + 24, '#ffd84d', 30, 110);
         }
@@ -532,6 +544,7 @@
   function startBoss() {
     bossFight = true;
     for (let r = level.gate.y0; r <= level.gate.y1; r++) level.grid[r][level.gate.x] = T.STONE;
+    markDirty(level.gate.x);
     entities.boss = {
       x: level.boss.x * TS, y: level.boss.y * TS, w: 44, h: 30, vx: -30, vy: 0, hp: 3, alive: true,
       ground: false, hopTimer: 2, flash: 0, t: 0,
@@ -668,11 +681,11 @@
   }
 
   function drawBackground() {
-    ctx.drawImage(parallax.sky, 0, 0, VIEW_W, VIEW_H);
+    bgCtx.drawImage(parallax.sky, 0, 0);
     const layer = (image, rate) => {
-      const x = -((cam.x * rate) % parallax.width);
-      ctx.drawImage(image, snap(x), 0, parallax.width, VIEW_H);
-      if (x + parallax.width < VIEW_W) ctx.drawImage(image, snap(x + parallax.width), 0, parallax.width, VIEW_H);
+      const x = Math.round(-((cam.x * rate) % parallax.width) * BG_RES);
+      bgCtx.drawImage(image, x, 0);
+      if (x + image.width < bgCanvas.width) bgCtx.drawImage(image, x + image.width, 0);
     };
     layer(parallax.clouds, 0.06);
     layer(parallax.far, 0.14);
@@ -683,9 +696,33 @@
   // 同じ模様が並ばないよう、位置から土の種類を決める
   const variant = (c, r) => ((c * 7 + r * 13) ^ (c >> 2)) & 3;
 
+  function paintChunk(index) {
+    const chunk = chunks[index];
+    if (!chunk.canvas) {
+      chunk.canvas = document.createElement('canvas');
+      chunk.canvas.width = CHUNK * TS * RES;
+      chunk.canvas.height = VIEW_H * RES;
+    }
+    const chunkCtx = chunk.canvas.getContext('2d');
+    chunkCtx.setTransform(RES, 0, 0, RES, 0, 0);
+    chunkCtx.clearRect(0, 0, CHUNK * TS, VIEW_H);
+    ctx = chunkCtx;
+    const c0 = index * CHUNK;
+    paintTiles(-c0 * TS, c0, Math.min(level.width - 1, c0 + CHUNK - 1));
+    ctx = screenCtx;
+    chunk.dirty = false;
+  }
+
   function drawTiles(ox) {
-    const c0 = Math.max(0, Math.floor(cam.x / TS) - 1);
-    const c1 = Math.min(level.width - 1, c0 + Math.ceil(VIEW_W / TS) + 2);
+    const first = Math.max(0, Math.floor(cam.x / (CHUNK * TS)));
+    const last = Math.min(chunks.length - 1, Math.floor((cam.x + VIEW_W + 8) / (CHUNK * TS)));
+    for (let i = first; i <= last; i++) {
+      if (chunks[i].dirty) paintChunk(i);
+      ctx.drawImage(chunks[i].canvas, snap(i * CHUNK * TS + ox), 0, CHUNK * TS, VIEW_H);
+    }
+  }
+
+  function paintTiles(ox, c0, c1) {
     const at = (c, r) => (r < 0 || r >= ROWS || c < 0 || c >= level.width ? T.GROUND : level.grid[r][c]);
     // 芝は上のタイルへはみ出すので、下の行から順に描くと土が芝を隠さない
     for (let r = ROWS - 1; r >= 0; r--) {
@@ -758,9 +795,8 @@
 
   function render() {
     ctx.setTransform(RES, 0, 0, RES, 0, 0);
-    ctx.imageSmoothingEnabled = true;
-    ctx.imageSmoothingQuality = 'high';
     if (!level) return;
+    ctx.clearRect(0, 0, VIEW_W, VIEW_H);
     drawBackground();
     const shakeX = cam.shake > 0 ? (Math.random() - 0.5) * 4 : 0;
     const ox = snap(-cam.x + shakeX);
@@ -821,7 +857,6 @@
         ctx.globalAlpha = 1;
       }
     }
-    ctx.drawImage(parallax.vignette, 0, 0, VIEW_W, VIEW_H);
     if (b && b.alive) {
       ctx.fillStyle = '#000a';
       ctx.fillRect(150, 26, 100, 7);
@@ -1004,6 +1039,7 @@
     window.KoroDebug = {
       input,
       keys: KEYS,
+      render,
       player: () => player,
       sprites,
       step: () => { if (mode === 'play') step(STEP); },

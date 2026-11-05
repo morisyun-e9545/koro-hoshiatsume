@@ -8,11 +8,13 @@
   <meta name="theme-color" content="#141a3a">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="style.css?v=6">
+  <link rel="stylesheet" href="style.css?v=8">
 </head>
 <body>
   <main id="stage">
+    <canvas id="bg" width="800" height="448" aria-hidden="true"></canvas>
     <canvas id="game" width="400" height="224" aria-label="ゲーム画面"></canvas>
+    <div id="vignette" aria-hidden="true"></div>
 
     <div id="hud" hidden>
       <div class="hud-left">
@@ -42,9 +44,9 @@
     </div>
   </main>
 
-  <script src="js/sprites.js?v=6"></script>
-  <script src="js/audio.js?v=6"></script>
-  <script src="js/levels.js?v=6"></script>
-  <script src="js/game.js?v=6"></script>
+  <script src="js/sprites.js?v=8"></script>
+  <script src="js/audio.js?v=8"></script>
+  <script src="js/levels.js?v=8"></script>
+  <script src="js/game.js?v=8"></script>
 </body>
 </html>

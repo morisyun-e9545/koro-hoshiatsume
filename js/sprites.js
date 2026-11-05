@@ -3,7 +3,7 @@
 (function () {
   'use strict';
 
-  const RES = window.matchMedia('(pointer: coarse)').matches ? 3 : 4;
+  const RES = window.matchMedia('(pointer: coarse)').matches ? 2 : 3;
 
   function bake(w, h, paint, res = RES) {
     const canvas = document.createElement('canvas');
@@ -861,12 +861,7 @@
       }
     });
 
-    const vignette = bake(400, 224, (ctx) => {
-      ctx.fillStyle = radial(ctx, 200, 112, 130, 280, ['#00000000', theme.vignette]);
-      ctx.fillRect(0, 0, 400, 224);
-    }, RES_BG);
-
-    return { width: 800, sky, clouds, far, mid, near, vignette };
+    return { width: 800, sky, clouds, far, mid, near };
   }
 
   window.Sprites = { RES, buildAll, buildTiles, buildParallax };
