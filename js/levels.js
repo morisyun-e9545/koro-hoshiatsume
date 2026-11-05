@@ -8,19 +8,32 @@
 
   const THEMES = {
     forest: {
-      song: 'forest', sky: ['#8fd8f0', '#e2f6df'], cloud: '#ffffffcc', far: '#a8dcb6', near: '#7cc795',
-      dirt: '#9a6a43', dirtDark: '#7f5434', top: '#5fb545', topLight: '#a1e36a',
-      stone: '#a9b0bd', stoneDark: '#7d8493',
+      song: 'forest', sky: ['#3f9fe6', '#8fd2f2', '#e6f5dc'], sun: [320, 42, 13], sunColor: '#fff3b8',
+      cloud: '#ffffffee', trees: true, vignette: '#0a2a2a55',
+      far: '#a9cfe0', farBase: '#cfe9e0', mid: '#79b58f', midBase: '#a7d5ab', midTree: '#5c9c7a',
+      near: '#3f8a58', nearBase: '#5ba56b', nearTree: '#2d6e49',
+      dirt: '#90623f', dirtDark: '#583722', pebble: '#b39a80',
+      top: '#57ad3f', topLight: '#b4ec6c', topDark: '#2f7a2f',
+      stone: '#9ca4b2', stoneLight: '#cfd5df', stoneDark: '#646b79',
     },
     dusk: {
-      song: 'dusk', sky: ['#f4845f', '#fcd98d'], cloud: '#ffe2c4cc', far: '#d27a70', near: '#94506a',
-      dirt: '#a65a3f', dirtDark: '#7f4033', top: '#d99a3d', topLight: '#f6d57e',
-      stone: '#b38a7e', stoneDark: '#83605a',
+      song: 'dusk', sky: ['#51347f', '#d2566e', '#ffb35e', '#ffe29a'], sun: [255, 118, 24], sunColor: '#ffd98a',
+      cloud: '#ffb48fdd', mesa: true, vignette: '#2a082f77',
+      far: '#a5597f', farBase: '#f0996f', mid: '#8a4470', midBase: '#d9775f', midTree: '#6d3560',
+      near: '#5e2b55', nearBase: '#8f3f5a', nearTree: '#4a2149',
+      mesaLight: '#a85058', mesaDark: '#5a2a50',
+      dirt: '#a65a3f', dirtDark: '#5e2c2b', pebble: '#c99a7a',
+      top: '#d9973b', topLight: '#ffe08a', topDark: '#96582a',
+      stone: '#b38a7e', stoneLight: '#dcb9a8', stoneDark: '#6f4a4c',
     },
     cave: {
-      song: 'cave', sky: ['#141a3a', '#2c2560'], starry: true, far: '#2a2f63', near: '#20224d',
-      dirt: '#4a4a7a', dirtDark: '#34345e', top: '#3fbfae', topLight: '#9df0e0',
-      stone: '#55558a', stoneDark: '#3a3a66',
+      song: 'cave', sky: ['#070a22', '#141a4a', '#2c2268'], sun: [90, 54, 11], sunColor: '#cfd8ff', starry: true,
+      crystals: true, vignette: '#00000099',
+      far: '#1f2560', farBase: '#2b2a70', mid: '#171b4c', midBase: '#20205c', midTree: '#141642',
+      near: '#101238', nearBase: '#171848', nearTree: '#0d0f30',
+      dirt: '#454a80', dirtDark: '#20234c', pebble: '#7f88bd',
+      top: '#35b5a6', topLight: '#a8ffee', topDark: '#17666b',
+      stone: '#50548c', stoneLight: '#8388c4', stoneDark: '#2c2e5e',
     },
   };
 

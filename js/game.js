@@ -11,7 +11,9 @@
 
   const canvas = document.getElementById('game');
   const ctx = canvas.getContext('2d');
-  ctx.imageSmoothingEnabled = false;
+  const RES = window.Sprites.RES;
+  canvas.width = VIEW_W * RES;
+  canvas.height = VIEW_H * RES;
 
   const $ = (id) => document.getElementById(id);
   const ui = {
@@ -223,9 +225,9 @@
 
   function makePlayer(x, y) {
     return {
-      x, y, w: 10, h: 14, vx: 0, vy: 0, face: 1, ground: false, on: null, coyote: 0, buffer: 0,
+      x, y, w: 12, h: 28, vx: 0, vy: 0, face: 1, ground: false, on: null, coyote: 0, buffer: 0,
       hp: MAX_HP, cape: false, airJumps: 0, invuln: 0, boosted: false, walk: 0, jumping: false,
-      prevBottom: y + 14,
+      prevBottom: y + 28,
     };
   }
 
@@ -253,7 +255,7 @@
     p.boosted = false;
     cam.shake = 0.2;
     sfx.hurt();
-    burst(p.x + 5, p.y + 7, '#ff6b7f', 10);
+    burst(p.x + 6, p.y + 12, '#ff6b7f', 10);
     updateHud();
     if (p.hp <= 0) gameOver();
   }
@@ -346,14 +348,14 @@
       p.on = null;
       p.jumping = true;
       sfx.jump();
-      burst(p.x + 5, p.y + 14, '#ffffffaa', 3, 25);
+      burst(p.x + 6, p.y + p.h, '#ffffffaa', 4, 25);
     } else if (pressed && !p.ground && p.cape && p.airJumps > 0) {
       p.vy = -300;
       p.airJumps -= 1;
       p.buffer = 0;
       p.jumping = true;
       sfx.jump2();
-      burst(p.x + 5, p.y + 14, '#2bb3a3', 8, 45);
+      burst(p.x + 6, p.y + p.h, '#5fe8d4', 10, 45);
     }
 
     const rising = p.vy < 0 && (p.boosted || (p.jumping && input.jump));
@@ -403,7 +405,7 @@
 
   function landPlayer() {
     const p = player;
-    if (!p.ground && p.vy > 200) burst(p.x + 5, p.y + 14, '#ffffff88', 3, 20);
+    if (!p.ground && p.vy > 200) burst(p.x + 6, p.y + p.h, '#ffffff88', 4, 20);
     p.ground = true;
     p.vy = 0;
     p.jumping = false;
@@ -578,7 +580,7 @@
     for (const l of entities.lanterns) {
       if (!l.lit && p.x + p.w > l.x) {
         l.lit = true;
-        checkpoint = { x: l.x, y: l.y };
+        checkpoint = { x: l.x, y: l.y + l.h - player.h - 1 };
         sfx.lantern();
         burst(l.x + 6, l.y + 5, '#ffd84d', 12, 60);
       }
@@ -622,97 +624,137 @@
   }
 
   // ---- 描画 ----
-  function drawBackground() {
-    const sky = ctx.createLinearGradient(0, 0, 0, VIEW_H);
-    sky.addColorStop(0, level.theme.sky[0]);
-    sky.addColorStop(1, level.theme.sky[1]);
-    ctx.fillStyle = sky;
-    ctx.fillRect(0, 0, VIEW_W, VIEW_H);
-    const layer = (image, rate) => {
-      const x = -Math.floor(cam.x * rate) % parallax.width;
-      ctx.drawImage(image, x, 0);
-      if (x + parallax.width < VIEW_W) ctx.drawImage(image, x + parallax.width, 0);
-    };
-    layer(parallax.decor, 0.08);
-    layer(parallax.far, 0.2);
-    layer(parallax.near, 0.4);
-  }
+  const snap = (v) => Math.round(v * RES) / RES;
 
-  function drawTiles(ox) {
-    const c0 = Math.max(0, Math.floor((cam.x) / TS) - 1);
-    const c1 = Math.min(level.width - 1, c0 + Math.ceil(VIEW_W / TS) + 2);
-    for (let r = 0; r < ROWS; r++) {
-      for (let c = c0; c <= c1; c++) {
-        const t = level.grid[r][c];
-        if (t === T.EMPTY) continue;
-        let image = tiles.fill;
-        if (t === T.GROUND) {
-          const above = r > 0 ? level.grid[r - 1][c] : T.GROUND;
-          image = above === T.GROUND || above === T.STONE ? tiles.fill : tiles.top;
-        } else if (t === T.ONEWAY) image = tiles.oneway;
-        else if (t === T.CRATE) image = tiles.crate;
-        else if (t === T.USED) image = tiles.used;
-        else if (t === T.SPIKE) image = tiles.spike;
-        else if (t === T.STONE) image = tiles.stone;
-        ctx.drawImage(image, Math.round(c * TS + ox), r * TS);
-      }
-    }
+  function drawImage(image, x, y) {
+    ctx.drawImage(image, snap(x), snap(y), image.logicalW, image.logicalH);
   }
 
   function drawSprite(name, x, y, flip) {
     const image = sprites[name];
-    const px = Math.round(x);
-    const py = Math.round(y);
     if (flip) {
       ctx.save();
-      ctx.translate(px + image.width, py);
+      ctx.translate(snap(x) + image.logicalW, snap(y));
       ctx.scale(-1, 1);
-      ctx.drawImage(image, 0, 0);
+      ctx.drawImage(image, 0, 0, image.logicalW, image.logicalH);
       ctx.restore();
     } else {
-      ctx.drawImage(image, px, py);
+      drawImage(image, x, y);
+    }
+  }
+
+  function drawGlow(x, y, size, alpha) {
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.globalAlpha = alpha;
+    ctx.drawImage(sprites.glow, snap(x - size / 2), snap(y - size / 2), size, size);
+    ctx.restore();
+  }
+
+  function drawBackground() {
+    ctx.drawImage(parallax.sky, 0, 0, VIEW_W, VIEW_H);
+    const layer = (image, rate) => {
+      const x = -((cam.x * rate) % parallax.width);
+      ctx.drawImage(image, snap(x), 0, parallax.width, VIEW_H);
+      if (x + parallax.width < VIEW_W) ctx.drawImage(image, snap(x + parallax.width), 0, parallax.width, VIEW_H);
+    };
+    layer(parallax.clouds, 0.06);
+    layer(parallax.far, 0.14);
+    layer(parallax.mid, 0.28);
+    layer(parallax.near, 0.46);
+  }
+
+  // 同じ模様が並ばないよう、位置から土の種類を決める
+  const variant = (c, r) => ((c * 7 + r * 13) ^ (c >> 2)) & 3;
+
+  function drawTiles(ox) {
+    const c0 = Math.max(0, Math.floor(cam.x / TS) - 1);
+    const c1 = Math.min(level.width - 1, c0 + Math.ceil(VIEW_W / TS) + 2);
+    const at = (c, r) => (r < 0 || r >= ROWS || c < 0 || c >= level.width ? T.GROUND : level.grid[r][c]);
+    // 芝は上のタイルへはみ出すので、下の行から順に描くと土が芝を隠さない
+    for (let r = ROWS - 1; r >= 0; r--) {
+      for (let c = c0; c <= c1; c++) {
+        const t = level.grid[r][c];
+        if (t === T.EMPTY) continue;
+        const x = c * TS + ox;
+        const y = r * TS;
+        if (t === T.GROUND) {
+          const covered = at(c, r - 1) === T.GROUND || at(c, r - 1) === T.STONE;
+          drawImage(covered ? tiles.fill[variant(c, r)] : tiles.top[variant(c, r)], x, covered ? y : y - 4);
+          if (!isSolid(at(c - 1, r))) drawImage(tiles.edge, x, y);
+          if (!isSolid(at(c + 1, r))) {
+            ctx.save();
+            ctx.translate(snap(x) + TS, y);
+            ctx.scale(-1, 1);
+            ctx.drawImage(tiles.edge, 0, 0, 4, TS);
+            ctx.restore();
+          }
+          // 深い土ほど暗くして奥行きを出す
+          let depth = 0;
+          while (depth < 3 && at(c, r - depth - 1) === T.GROUND) depth++;
+          drawImage(tiles.shade[depth], x, y);
+        } else if (t === T.ONEWAY) drawImage(tiles.oneway, x, y);
+        else if (t === T.CRATE) drawImage(tiles.crate, x, y);
+        else if (t === T.USED) drawImage(tiles.used, x, y);
+        else if (t === T.SPIKE) drawImage(tiles.spike, x, y);
+        else if (t === T.STONE) drawImage(tiles.stone, x, y);
+      }
+    }
+  }
+
+  // 足元の地面を探して、接地感を出す影を落とす
+  function drawShadow(cx, bottom, radius, ox) {
+    const c = Math.floor(cx / TS);
+    for (let r = Math.max(0, Math.floor(bottom / TS)); r < ROWS; r++) {
+      const t = tile(c, r);
+      if (isSolid(t) || t === T.ONEWAY) {
+        const gap = r * TS - bottom;
+        const k = Math.max(0, 1 - gap / 70);
+        if (k <= 0) return;
+        ctx.fillStyle = `rgba(0, 0, 0, ${0.32 * k})`;
+        ctx.beginPath();
+        ctx.ellipse(cx + ox, r * TS + 1, radius * (0.6 + 0.4 * k), 2.2, 0, 0, Math.PI * 2);
+        ctx.fill();
+        return;
+      }
     }
   }
 
   function drawGoal(g, ox) {
-    const x = Math.round(g.x + ox);
-    const y = Math.round(g.y);
-    ctx.fillStyle = '#ffd84d44';
-    ctx.fillRect(x + 6, y + 8, 20, 40);
-    ctx.fillStyle = '#ffe98f' + (frame % 40 < 20 ? 'aa' : '77');
-    ctx.fillRect(x + 8, y + 12, 16, 36);
-    ctx.fillStyle = '#6e4a8f';
-    ctx.fillRect(x, y + 6, 6, 42);
-    ctx.fillRect(x + 26, y + 6, 6, 42);
-    ctx.fillRect(x + 2, y, 28, 8);
-    ctx.fillStyle = '#9b6fc7';
-    ctx.fillRect(x, y + 6, 2, 42);
-    ctx.fillRect(x + 26, y + 6, 2, 42);
-    ctx.fillRect(x + 2, y, 28, 2);
-    drawSprite('star', x + 11, y - 12 + Math.sin(frame / 14) * 2);
+    drawGlow(g.x + 16 + ox, g.y + 26, 110, 0.55 + Math.sin(frame / 24) * 0.15);
+    drawSprite('goal', g.x - 4 + ox, g.y - 12);
+    drawSprite('star', g.x + 9 + ox, g.y - 19 + Math.sin(frame / 18) * 2);
   }
 
   function drawPlayer(ox) {
     const p = player;
+    if (p.x < 0) return;
+    drawShadow(p.x + p.w / 2, p.y + p.h, 8, ox);
     if (p.invuln > 0 && Math.floor(frame / 4) % 2 === 0) return;
-    let name = 'koroStand';
-    if (!p.ground) name = 'koroJump';
-    else if (Math.abs(p.vx) > 8) name = Math.floor(p.walk / 12) % 2 ? 'koroRun1' : 'koroRun2';
-    const sx = p.x + ox - 3;
-    const sy = p.y - 2;
+    let name = 'heroStand';
+    if (!p.ground) name = p.vy < 0 ? 'heroJump' : 'heroFall';
+    else if (Math.abs(p.vx) > 8) name = `heroRun${Math.floor(p.walk / 9) % 4}`;
+    const sx = p.x + p.w / 2 - 12;
+    const sy = p.y + p.h - 29.9;
     if (p.cape) drawSprite('cape', sx, sy, p.face < 0);
     drawSprite(name, sx, sy, p.face < 0);
   }
 
   function render() {
-    ctx.imageSmoothingEnabled = false;
-    drawBackground();
+    ctx.setTransform(RES, 0, 0, RES, 0, 0);
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
     if (!level) return;
+    drawBackground();
     const shakeX = cam.shake > 0 ? (Math.random() - 0.5) * 4 : 0;
-    const ox = -Math.round(cam.x) + Math.round(shakeX);
-    const onScreen = (e) => e.x + (e.w || 16) + ox > -32 && e.x + ox < VIEW_W + 32;
+    const ox = snap(-cam.x + shakeX);
+    const onScreen = (e) => e.x + (e.w || 16) + ox > -40 && e.x + ox < VIEW_W + 40;
 
-    for (const l of entities.lanterns) if (onScreen(l)) drawSprite(l.lit ? 'lanternOn' : 'lanternOff', l.x + ox, l.y);
+    for (const l of entities.lanterns) {
+      if (!onScreen(l)) continue;
+      if (l.lit) drawGlow(l.x + 6 + ox, l.y - 3, 70, 0.7 + Math.sin(frame / 20) * 0.12);
+      drawSprite(l.lit ? 'lanternOn' : 'lanternOff', l.x - 1 + ox, l.y - 10);
+    }
     if (entities.goal) drawGoal(entities.goal, ox);
     drawTiles(ox);
     for (const m of entities.movers) {
@@ -721,50 +763,53 @@
     }
     for (const s of entities.springs) if (onScreen(s)) drawSprite(s.press > 0 ? 'spring2' : 'spring1', s.x + ox, s.y);
     for (const s of entities.stars) {
-      if (!s.got && onScreen(s)) drawSprite('star', s.x + ox, s.y + Math.sin(frame / 12 + s.x) * 1.5);
+      if (!s.got && onScreen(s)) drawSprite('star', s.x - 2 + ox, s.y - 2 + Math.sin(frame / 18 + s.x) * 1.5);
     }
     for (const item of entities.items) {
-      drawSprite(item.kind === 'cape' ? 'capeItem' : 'heart', item.x + ox, item.y + Math.sin(frame / 10) * 2);
+      drawGlow(item.x + 6 + ox, item.y + 5, 30, 0.5);
+      drawSprite(item.kind === 'cape' ? 'capeItem' : 'heart', item.x + ox, item.y + Math.sin(frame / 14) * 1.5);
     }
-    const flipFrame = Math.floor(frame / 14) % 2;
+    const flipFrame = Math.floor(frame / 12) % 2;
+    const OFFSET = { beetle: [-2, -4], hedge: [-2, -5], bird: [-3, -4] };
     for (const e of entities.enemies) {
       if (!onScreen(e)) continue;
       const flip = e.vx > 0;
+      const [dx, dy] = OFFSET[e.type];
       if (!e.alive) {
         if (e.squash > 0) {
-          ctx.save();
-          ctx.translate(Math.round(e.x + ox), Math.round(e.y + e.h - 4));
-          ctx.scale(1, 0.4);
-          ctx.drawImage(sprites.beetle1, -1, 0);
-          ctx.restore();
+          const image = sprites[`${e.type}0`];
+          ctx.globalAlpha = Math.min(1, e.squash * 4);
+          ctx.drawImage(image, snap(e.x + dx + ox), snap(e.y + e.h - 5), image.logicalW, 5);
+          ctx.globalAlpha = 1;
         }
         continue;
       }
-      const base = { beetle: 'beetle', hedge: 'hedge', bird: 'bird' }[e.type];
-      drawSprite(base + (flipFrame ? '1' : '2'), e.x + ox - 1, e.y - 1, flip);
+      if (e.type !== 'bird') drawShadow(e.x + e.w / 2, e.y + e.h, 7, ox);
+      drawSprite(e.type + flipFrame, e.x + dx + ox, e.y + dy, flip);
     }
     const b = entities.boss;
-    if (b && !(b.flash > 0 && Math.floor(frame / 3) % 2)) {
-      const image = sprites[flipFrame ? 'boss1' : 'boss2'];
-      ctx.save();
-      ctx.translate(Math.round(b.x + ox + (b.vx > 0 ? b.w : 0)), Math.round(b.y - 2));
-      ctx.scale(b.vx > 0 ? -3 : 3, 3);
-      ctx.drawImage(image, 0, 0);
-      ctx.restore();
+    if (b) {
+      drawShadow(b.x + b.w / 2, b.y + b.h, 24, ox);
+      if (!(b.flash > 0 && Math.floor(frame / 3) % 2)) drawSprite(`boss${flipFrame}`, b.x - 5 + ox, b.y - 11, b.vx > 0);
     }
     drawPlayer(ox);
     for (const q of particles) {
       if (q.sprite) {
         drawSprite(q.sprite, q.x + ox, q.y);
       } else {
+        ctx.globalAlpha = Math.min(1, q.life * 3);
         ctx.fillStyle = q.color;
-        ctx.fillRect(Math.round(q.x + ox), Math.round(q.y), 2, 2);
+        ctx.beginPath();
+        ctx.arc(q.x + ox, q.y, 1.1, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.globalAlpha = 1;
       }
     }
+    ctx.drawImage(parallax.vignette, 0, 0, VIEW_W, VIEW_H);
     if (b && b.alive) {
-      ctx.fillStyle = '#0008';
+      ctx.fillStyle = '#000a';
       ctx.fillRect(150, 26, 100, 7);
-      ctx.fillStyle = '#ff6b7f';
+      ctx.fillStyle = '#ff5a78';
       ctx.fillRect(151, 27, (98 * b.hp) / 3, 5);
     }
   }
@@ -814,7 +859,7 @@
     const order = [...buttons.keys()].sort((a, b) => (b === Math.min(save.unlocked, buttons.length - 1)) - (a === Math.min(save.unlocked, buttons.length - 1)));
     showPanel(`
       <h1>コロのほしあつめ</h1>
-      <p>子ギツネのコロと、星のかけらを集めて走ろう！</p>
+      <p>スーツ姿のコロさんと、星のかけらを集めて走ろう！</p>
       <dl class="keys">
         ${isTouch ? `
           <dt>◀ ▶</dt><dd>移動</dd>
@@ -943,6 +988,7 @@
     window.KoroDebug = {
       input,
       player: () => player,
+      sprites,
       step: () => { if (mode === 'play') step(STEP); },
       startLevel,
       state: () => ({

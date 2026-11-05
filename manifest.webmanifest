@@ -1,7 +1,7 @@
 {
   "name": "コロのほしあつめ",
   "short_name": "コロ",
-  "description": "子ギツネのコロが星のかけらを集めて走る横スクロールアクション",
+  "description": "スーツ姿のコロさんが星のかけらを集めて走る横スクロールアクション",
   "start_url": ".",
   "display": "fullscreen",
   "orientation": "landscape",

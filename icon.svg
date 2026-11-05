@@ -1,8 +1,14 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" shape-rendering="crispEdges">
-  <rect width="64" height="64" rx="12" fill="#141a3a"/>
-  <path d="M14 12h6v6h6v6h12v-6h6v-6h6v30h-4v6H18v-6h-4z" fill="#f28c38"/>
-  <path d="M14 34h36v8h-4v6H18v-6h-4z" fill="#fff1d6"/>
-  <rect x="22" y="28" width="5" height="6" fill="#1b1f3b"/>
-  <rect x="37" y="28" width="5" height="6" fill="#1b1f3b"/>
-  <rect x="29" y="38" width="6" height="4" fill="#1b1f3b"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3f9fe6"/><stop offset="1" stop-color="#e6f5dc"/></linearGradient>
+    <radialGradient id="skin" cx=".6" cy=".4" r=".7"><stop offset="0" stop-color="#ffe0bf"/><stop offset="1" stop-color="#d99a70"/></radialGradient>
+  </defs>
+  <rect width="64" height="64" rx="13" fill="url(#bg)"/>
+  <path d="M14 64c1-13 8-17 18-17s17 4 18 17z" fill="#8f959f"/>
+  <path d="M27 47h10l-5 17z" fill="#b3172d"/>
+  <ellipse cx="32" cy="31" rx="17" ry="17" fill="url(#skin)"/>
+  <path d="M14 27l-1-8 4 1 0-9 6 4 2-9 6 6 4-7 4 7 6-4 0 8 5 0-2 11c-7-6-25-7-34 0z" fill="#b9772f"/>
+  <g fill="#d7ecff66" stroke="#fff" stroke-width="1.6"><rect x="19" y="27" width="11" height="8" rx="2.5"/><rect x="34" y="27" width="11" height="8" rx="2.5"/></g>
+  <circle cx="25" cy="31" r="1.7" fill="#26211f"/><circle cx="39" cy="31" r="1.7" fill="#26211f"/>
+  <path d="M26 40q6 4 12 0" fill="none" stroke="#8a4b3b" stroke-width="1.6" stroke-linecap="round"/>
 </svg>
