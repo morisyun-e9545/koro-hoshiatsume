@@ -3,7 +3,8 @@
 (function () {
   'use strict';
 
-  const RES = window.matchMedia('(pointer: coarse)').matches ? 2 : 3;
+  const RES = 2;
+  const BG_RES = 1.5;
 
   function bake(w, h, paint, res = RES) {
     const canvas = document.createElement('canvas');
@@ -767,7 +768,7 @@
   }
 
   function buildParallax(theme) {
-    const RES_BG = 2;
+    const RES_BG = BG_RES;
     const sky = bake(400, 224, (ctx) => {
       ctx.fillStyle = linear(ctx, 0, 0, 0, 224, theme.sky);
       ctx.fillRect(0, 0, 400, 224);
@@ -864,5 +865,5 @@
     return { width: 800, sky, clouds, far, mid, near };
   }
 
-  window.Sprites = { RES, buildAll, buildTiles, buildParallax };
+  window.Sprites = { RES, BG_RES, buildAll, buildTiles, buildParallax };
 })();

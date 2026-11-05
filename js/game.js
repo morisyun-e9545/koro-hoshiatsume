@@ -14,8 +14,9 @@
   let ctx = screenCtx; // 地形を事前に描くときだけ描画先を切り替える
   const bgCanvas = document.getElementById('bg');
   const bgCtx = bgCanvas.getContext('2d', { alpha: false });
-  const BG_RES = 2;
-  const RES = window.Sprites.RES;
+  const { RES, BG_RES } = window.Sprites;
+  bgCanvas.width = VIEW_W * BG_RES;
+  bgCanvas.height = VIEW_H * BG_RES;
   canvas.width = VIEW_W * RES;
   canvas.height = VIEW_H * RES;
 
@@ -117,7 +118,7 @@
   let player = null;
   let entities = null; // 動く物をまとめたもの
   let particles = [];
-  let cam = { x: 0, shake: 0 };
+  let cam = { x: 0, shake: 0, look: 0 };
   let clock = 0;
   let frame = 0;
   let starsThisRun = 0;
@@ -233,6 +234,7 @@
     player = makePlayer(checkpoint.x, checkpoint.y);
     cam.x = 0;
     cam.shake = 0;
+    cam.look = 0;
     updateHud();
   }
 
@@ -270,6 +272,7 @@
     p.vx = (p.x < fromX ? -1 : 1) * 130;
     p.vy = -210;
     p.boosted = false;
+    p.jumping = false;
     cam.shake = 0.2;
     sfx.hurt();
     burst(p.x + 6, p.y + 12, '#ff6b7f', 10);
@@ -340,9 +343,9 @@
   function stepPlayer(dt) {
     const p = player;
     const dir = (held('right') ? 1 : 0) - (held('left') ? 1 : 0);
-    const maxSpeed = held('run') ? 190 : 140;
+    const maxSpeed = held('run') ? 150 : 100;
     const reversing = dir && p.vx && Math.sign(p.vx) !== dir;
-    const accel = (p.ground ? 1500 : 1000) * (reversing ? 1.6 : 1);
+    const accel = (p.ground ? 1000 : 900) * (reversing ? 2 : 1);
 
     if (dir) {
       p.face = dir;
@@ -354,15 +357,16 @@
         p.vx = Math.max(maxSpeed, Math.abs(p.vx) - 900 * dt) * Math.sign(p.vx);
       }
     } else {
-      const drag = (p.ground ? 1600 : 400) * dt;
+      // キーを離したら地上でも空中でも、すぐ横移動を止める
+      const drag = (p.ground ? 2600 : 1400) * dt;
       p.vx = Math.abs(p.vx) <= drag ? 0 : p.vx - Math.sign(p.vx) * drag;
     }
 
-    p.coyote = p.ground ? 0.09 : Math.max(0, p.coyote - dt);
+    p.coyote = p.ground ? 0.1 : Math.max(0, p.coyote - dt);
     const jumpHeld = held('jump');
     const pressed = jumpHeld && !prevJump;
     prevJump = jumpHeld;
-    p.buffer = pressed ? 0.12 : Math.max(0, p.buffer - dt);
+    p.buffer = pressed ? 0.15 : Math.max(0, p.buffer - dt);
 
     if (p.buffer > 0 && p.coyote > 0) {
       p.vy = -340;
@@ -382,8 +386,9 @@
       burst(p.x + 6, p.y + p.h, '#5fe8d4', 10, 45);
     }
 
-    const rising = p.vy < 0 && (p.boosted || (p.jumping && jumpHeld));
-    p.vy = Math.min(p.vy + (rising ? 850 : 1300) * dt, 420);
+    // 軌道は常に同じ。キーを離すと、そこで上昇を打ち切る
+    if (p.jumping && !jumpHeld && p.vy < -120) p.vy = -120;
+    p.vy = Math.min(p.vy + (p.vy < 0 ? 850 : 1100) * dt, 380);
     if (p.vy >= 0) p.boosted = false;
 
     moveX(p, p.vx * dt);
@@ -620,8 +625,10 @@
   function stepCamera(dt) {
     const p = player;
     const max = level.width * TS - VIEW_W;
-    const target = p.x + p.w / 2 - VIEW_W / 2 + p.face * 28;
-    cam.x += (target - cam.x) * Math.min(1, dt * 6);
+    // 向きを変えても画面が振られないよう、先読みはゆっくり動かす
+    cam.look += (p.face * 22 - cam.look) * Math.min(1, dt * 2.5);
+    const target = p.x + p.w / 2 - VIEW_W / 2 + cam.look;
+    cam.x += (target - cam.x) * Math.min(1, dt * 12);
     cam.x = Math.max(0, Math.min(max, cam.x));
     if (level.gate && !bossFight && p.x > (level.gate.x + 3) * TS) startBoss();
     if (bossFight && entities.boss) cam.x = Math.max(cam.x, max);
@@ -1007,19 +1014,16 @@
 
   // ---- メインループ ----
   let last = performance.now();
-  let acc = 0;
   let lastSecond = -1;
 
   function loop(now) {
-    const delta = Math.min(0.1, (now - last) / 1000);
+    const delta = Math.min(0.05, (now - last) / 1000);
     last = now;
-    frame++;
-    if (mode === 'play') {
-      acc += delta;
-      while (acc >= STEP && mode === 'play') {
-        step(STEP);
-        acc -= STEP;
-      }
+    frame = now / 16.67; // 画面の更新回数に関係なくアニメーションの速さをそろえる
+    if (mode === 'play' && delta > 0) {
+      // 画面の更新ごとに進めると、遅れとブレが出にくい
+      const steps = Math.ceil(delta * 50);
+      for (let i = 0; i < steps && mode === 'play'; i++) step(delta / steps);
       const sec = Math.floor(clock);
       if (sec !== lastSecond) {
         lastSecond = sec;
@@ -1042,7 +1046,7 @@
       render,
       player: () => player,
       sprites,
-      step: () => { if (mode === 'play') step(STEP); },
+      step: (dt) => { if (mode === 'play') step(dt || STEP); },
       startLevel,
       state: () => ({
         mode, levelIndex, x: player.x, y: player.y, vx: player.vx, vy: player.vy, ground: player.ground,

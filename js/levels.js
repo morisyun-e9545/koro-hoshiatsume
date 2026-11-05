@@ -165,7 +165,7 @@
       .ground(24, 27, 10).ground(31, 33, 9).ground(37, 40, 10)
       .starArc(21, 7, 3).starArc(28, 6, 3).starArc(34, 6, 3)
       .ground(41, 56)
-      .spikes(45, 47, 10).starRow(45, 7, 3)
+      .spikes(45, 46, 10).starRow(45, 7, 2)
       .hedge(52)
       .mover(58, 10, 3, 7, 0, 5).starRow(59, 7, 8)
       .ground(69, 88)
