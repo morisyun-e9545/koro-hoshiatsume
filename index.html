@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+  <title>コロのほしあつめ</title>
+  <meta name="description" content="子ギツネのコロが星のかけらを集めて走る、ブラウザで遊べる横スクロールアクションゲーム。">
+  <meta name="theme-color" content="#141a3a">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main id="stage">
+    <canvas id="game" width="400" height="224" aria-label="ゲーム画面"></canvas>
+
+    <div id="hud" hidden>
+      <div class="hud-left">
+        <span id="hud-hearts" aria-label="ライフ"></span>
+        <span id="hud-cape" hidden>マント</span>
+      </div>
+      <div class="hud-center" id="hud-stage"></div>
+      <div class="hud-right">
+        <span>★ <b id="hud-stars">0</b></span>
+        <span id="hud-time">0:00</span>
+        <button id="btn-sound" type="button" aria-label="音のオンオフ">♪</button>
+        <button id="btn-pause" type="button" aria-label="ポーズ">Ⅱ</button>
+      </div>
+    </div>
+
+    <div id="overlay"></div>
+
+    <div id="touch" hidden>
+      <div class="pad">
+        <button data-key="left" type="button" aria-label="左">◀</button>
+        <button data-key="right" type="button" aria-label="右">▶</button>
+      </div>
+      <div class="pad">
+        <button data-key="run" type="button" aria-label="ダッシュ">B</button>
+        <button data-key="jump" type="button" aria-label="ジャンプ">A</button>
+      </div>
+    </div>
+  </main>
+
+  <script src="js/sprites.js"></script>
+  <script src="js/audio.js"></script>
+  <script src="js/levels.js"></script>
+  <script src="js/game.js"></script>
+</body>
+</html>

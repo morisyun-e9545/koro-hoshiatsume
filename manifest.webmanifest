@@ -1,0 +1,14 @@
+{
+  "name": "コロのほしあつめ",
+  "short_name": "コロ",
+  "description": "子ギツネのコロが星のかけらを集めて走る横スクロールアクション",
+  "start_url": ".",
+  "display": "fullscreen",
+  "orientation": "landscape",
+  "background_color": "#141a3a",
+  "theme_color": "#141a3a",
+  "lang": "ja",
+  "icons": [
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ]
+}
