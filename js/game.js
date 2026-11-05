@@ -43,9 +43,12 @@
   const input = { left: false, right: false, jump: false, run: false };
   const KEYS = {
     ArrowLeft: 'left', KeyA: 'left', ArrowRight: 'right', KeyD: 'right',
-    Space: 'jump', ArrowUp: 'jump', KeyW: 'jump', KeyZ: 'jump',
-    ShiftLeft: 'run', ShiftRight: 'run', KeyX: 'run',
+    Space: 'jump', ArrowUp: 'jump', KeyW: 'jump', KeyZ: 'jump', KeyJ: 'jump',
+    KeyX: 'run', KeyK: 'run', // Shift は連打で Windows の固定キー画面が出るので使わない
   };
+  // 次の処理までに離された短い入力も取りこぼさないよう覚えておく
+  const pulse = { left: false, right: false, jump: false, run: false };
+  const held = (key) => input[key] || pulse[key];
 
   window.addEventListener('keydown', (e) => {
     const action = KEYS[e.code];
@@ -61,7 +64,10 @@
       return;
     }
     if (e.code === 'KeyM') toggleSound();
-    if (action) input[action] = true;
+    if (action) {
+      input[action] = true;
+      pulse[action] = true;
+    }
   });
 
   window.addEventListener('keyup', (e) => {
@@ -84,7 +90,10 @@
 
   window.addEventListener('contextmenu', (e) => e.preventDefault());
   window.addEventListener('blur', () => {
-    Object.keys(input).forEach((key) => { input[key] = false; });
+    Object.keys(input).forEach((key) => {
+      input[key] = false;
+      pulse[key] = false;
+    });
     if (mode === 'play') pause();
   });
   document.addEventListener('visibilitychange', () => {
@@ -319,25 +328,29 @@
 
   function stepPlayer(dt) {
     const p = player;
-    const dir = (input.right ? 1 : 0) - (input.left ? 1 : 0);
-    const maxSpeed = input.run ? 170 : 105;
-    const accel = p.ground ? 800 : 520;
+    const dir = (held('right') ? 1 : 0) - (held('left') ? 1 : 0);
+    const maxSpeed = held('run') ? 190 : 140;
+    const reversing = dir && p.vx && Math.sign(p.vx) !== dir;
+    const accel = (p.ground ? 1500 : 1000) * (reversing ? 1.6 : 1);
 
     if (dir) {
-      p.vx += dir * accel * dt;
       p.face = dir;
+      if (Math.abs(p.vx) <= maxSpeed || reversing) {
+        // 加速は上限で必ず止める
+        p.vx = Math.max(-maxSpeed, Math.min(maxSpeed, p.vx + dir * accel * dt));
+      } else {
+        // ダッシュをやめたときなど、上限より速ければなめらかに落とす
+        p.vx = Math.max(maxSpeed, Math.abs(p.vx) - 900 * dt) * Math.sign(p.vx);
+      }
     } else {
-      const drag = (p.ground ? 900 : 260) * dt;
+      const drag = (p.ground ? 1600 : 400) * dt;
       p.vx = Math.abs(p.vx) <= drag ? 0 : p.vx - Math.sign(p.vx) * drag;
-    }
-    if (Math.abs(p.vx) > maxSpeed) {
-      const drag = 500 * dt;
-      p.vx = Math.max(maxSpeed, Math.abs(p.vx) - drag) * Math.sign(p.vx);
     }
 
     p.coyote = p.ground ? 0.09 : Math.max(0, p.coyote - dt);
-    const pressed = input.jump && !prevJump;
-    prevJump = input.jump;
+    const jumpHeld = held('jump');
+    const pressed = jumpHeld && !prevJump;
+    prevJump = jumpHeld;
     p.buffer = pressed ? 0.12 : Math.max(0, p.buffer - dt);
 
     if (p.buffer > 0 && p.coyote > 0) {
@@ -358,7 +371,7 @@
       burst(p.x + 6, p.y + p.h, '#5fe8d4', 10, 45);
     }
 
-    const rising = p.vy < 0 && (p.boosted || (p.jumping && input.jump));
+    const rising = p.vy < 0 && (p.boosted || (p.jumping && jumpHeld));
     p.vy = Math.min(p.vy + (rising ? 850 : 1300) * dt, 420);
     if (p.vy >= 0) p.boosted = false;
 
@@ -389,6 +402,7 @@
       }
     }
 
+    Object.keys(pulse).forEach((key) => { pulse[key] = false; });
     p.walk += Math.abs(p.vx) * dt;
     p.invuln = Math.max(0, p.invuln - dt);
 
@@ -423,6 +437,8 @@
 
   function stepEnemies(dt) {
     const p = player;
+    // 敵との接触は見た目より少し狭くして、かすっただけのダメージを減らす
+    const body = { x: p.x + 2, y: p.y + 4, w: p.w - 4, h: p.h - 4 };
     for (const e of entities.enemies) {
       if (!e.alive) {
         e.squash -= dt;
@@ -445,7 +461,7 @@
       }
       if (e.y > ROWS * TS + 20) e.alive = false;
 
-      if (overlaps(p, e)) {
+      if (overlaps(body, e)) {
         const fromAbove = p.vy > 0 && p.prevBottom <= e.y + 7;
         if (fromAbove && e.type !== 'hedge') {
           e.alive = false;
@@ -868,7 +884,7 @@
         ` : `
           <dt>← → / A D</dt><dd>移動</dd>
           <dt>Space / ↑ / Z</dt><dd>ジャンプ（マントがあれば空中でもう一回）</dd>
-          <dt>Shift / X</dt><dd>押しながらダッシュ</dd>
+          <dt>X / K</dt><dd>押しながらダッシュ</dd>
           <dt>P ・ M</dt><dd>ポーズ ・ 音のオンオフ</dd>
         `}
       </dl>
@@ -987,6 +1003,7 @@
   if (debug) {
     window.KoroDebug = {
       input,
+      keys: KEYS,
       player: () => player,
       sprites,
       step: () => { if (mode === 'play') step(STEP); },
